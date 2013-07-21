@@ -28,6 +28,34 @@
 		</select>
 	[% END %]
 
+	[% IF pref_customArtSpecs.keys.size; WRAPPER setting title="SETUP_PRECACHEARTWORK_CUSTOM_SPECS" desc="" %]
+		<p>[% "DELETE" | string %]</p>
+
+		<style>
+			.specs td { padding: 5px 10px 0 0; }
+		</style>
+	
+		<table border="0" class="specs">
+			[% FOREACH pref = pref_customArtSpecs %]
+			<tr>
+				<td><input name="delete" type="checkbox" value="[% pref.key %]"></td>
+				<td>[% pref.key %]</label></td>
+				<td><div>[% pref.value %]</div></td>
+			</tr>
+			[% END %]
+	
+		</table>
+	[% END; END %]
+
+	[% WRAPPER setting title="SETUP_IMAGEPROXY" desc="SETUP_IMAGEPROXY_DESC" %]
+		<select class="stdedit" name="pref_useLocalImageproxy" id="useLocalImageproxy">
+
+			<option [% IF NOT prefs.pref_useLocalImageproxy %]selected [% END %]value="0">[% 'SETUP_IMAGEPROXY_REMOTE' | getstring %]</option>
+			<option [% IF prefs.pref_useLocalImageproxy %]selected [% END %]value="1">[% 'SETUP_IMAGEPROXY_LOCAL' | getstring %]</option>
+		
+		</select>
+	[% END %]
+
 	[% WRAPPER settingSection %]
 		[% WRAPPER settingGroup title="SETUP_SERVERPRIORITY" desc="SETUP_SERVERPRIORITY_DESC" %]
 			<select class="stdedit" name="pref_serverPriority" id="serverPriority">

@@ -8,7 +8,6 @@ var SqueezeJS = {
 	string : function(s){ return this.Strings[s]; },
 	
 	contributorRoles : new Array('artist', 'composer', 'conductor', 'band', 'albumartist', 'trackartist'),
-	coverFileSuffix : Ext.isIE6 ? 'gif' : 'png',
 
 	Controller : null
 };
@@ -353,7 +352,7 @@ function _init() {
 		getStatus : function(){
 			if (this.player) {
 				this.playerRequest({
-					params: [ "status", "-", 1, "tags:cgABbehldiqtyrSuoKLN" ],
+					params: [ "status", "-", 1, "tags:cgABbehldiqtyrSuoKLNJ" ],
 					failure: this._updateStatus,
 					success: this._updateStatus,
 					scope: this
@@ -782,11 +781,11 @@ SqueezeJS.SonginfoParser = {
 
 				// some internal logos come without resizing parameters - add them here if size is defined
 				else if (coverart && width && !publicURL) {
-					coverart = coverart.replace(/(icon)(\.\w+)$/, "$1_" + width + 'x' + width + "_p$2");
+					coverart = coverart.replace(/(icon|image|cover)(\.\w+)$/, "$1_" + width + 'x' + width + "_p$2");
 				}
 			}
 			else {
-				coverart = this.defaultCoverart(result.playlist_loop[0].coverid || result.playlist_loop[0].id, width);
+				coverart = this.defaultCoverart(result.playlist_loop[0].coverid || result.playlist_loop[0].artwork_track_id || result.playlist_loop[0].id, width);
 			}
 		}
 
@@ -794,7 +793,7 @@ SqueezeJS.SonginfoParser = {
 	},
 	
 	defaultCoverart : function(coverid, width) {
-		return SqueezeJS.Controller.getBaseUrl() + '/music/' + (coverid || 0) + '/cover' + (width ? '_' + width + 'x' + width + '_p.' : '.') + SqueezeJS.coverFileSuffix;
+		return SqueezeJS.Controller.getBaseUrl() + '/music/' + (coverid || 0) + '/cover' + (width ? '_' + width + 'x' + width + '_p.png' : '');
 	}
 };
 

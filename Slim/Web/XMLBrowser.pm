@@ -24,6 +24,7 @@ use Slim::Utils::Favorites;
 use Slim::Utils::Prefs;
 use Slim::Music::TitleFormatter;
 use Slim::Web::HTTP;
+use Slim::Web::ImageProxy qw(proxiedImage);
 use Slim::Web::Pages;
 
 use constant CACHE_TIME => 3600; # how long to cache browse sessions
@@ -523,6 +524,7 @@ sub handleFeed {
 			 && !(ref $subFeed->{'url'}) ) 
 		) {
 			$subFeed->{'image'} ||= Slim::Player::ProtocolHandlers->iconForURL($subFeed->{'play'} || $subFeed->{'url'});
+			$subFeed->{'image'} = proxiedImage($subFeed->{'image'});
 
 			$stash->{'streaminfo'} = {
 				'item'  => $subFeed,
@@ -570,7 +572,7 @@ sub handleFeed {
 	}
 	
 	$stash->{'crumb'}     = \@crumb;
-	$stash->{'image'}     = $feed->{'image'} || $feed->{'cover'} || $stash->{'image'};
+	$stash->{'image'}     = proxiedImage($feed->{'image'} || $feed->{'cover'} || $stash->{'image'});
 
 	foreach (qw(items type orderByList playlist_id playlistTitle total)) {
 		$stash->{$_} = $feed->{$_} if defined $feed->{$_};
@@ -618,6 +620,7 @@ sub handleFeed {
 				ct      => $streamItem->{'mime'},
 				secs    => $streamItem->{'duration'},
 				bitrate => $streamItem->{'bitrate'},
+				cover   => $streamItem->{'image'} || $streamItem->{'cover'},
 			} );
 		
 			$client->execute([ 'playlist', $action, $url ]);
@@ -656,6 +659,7 @@ sub handleFeed {
 				ct      => $item->{'mime'},
 				secs    => $item->{'duration'},
 				bitrate => $item->{'bitrate'},
+				cover   => $item->{'image'} || $item->{'cover'},
 			} );
 			
 			main::idleStreams();
@@ -782,6 +786,17 @@ sub handleFeed {
 					$_->{'showYear'}   = 1 if ($prefs->get('showYear')   && $_->{'year'});
 					$_->{'showArtist'} = 1 if ($prefs->get('showArtist') && $_->{'artist'});
 				}
+			}
+			
+			# keep track of station icons
+			if ( 
+				( $_->{play} || $_->{playlist} || ($_->{type} && ($_->{type} eq 'audio' || $_->{type} eq 'playlist')) )
+				&& $_->{url} =~ /^http/ 
+				&& $_->{url} !~ m|\.com/api/\w+/v1/opml| 
+				&& ( my $cover = $_->{image} || $_->{cover} )
+				&& !Slim::Utils::Cache->new->get("remote_image_" . $_->{url})
+			) {
+				$cache->set("remote_image_" . $_->{url}, $cover, 86400);
 			}
 		}
 
@@ -969,7 +984,7 @@ sub handleFeed {
 					$type, 
 					$item->{'parser'}, 
 					1, 
-					$item->{'image'} || $item->{'icon'} || Slim::Player::ProtocolHandlers->iconForURL($furl) 
+					proxiedImage($item->{'image'} || $item->{'icon'} || Slim::Player::ProtocolHandlers->iconForURL($furl)) 
 				);
 			} elsif ($stash->{'action'} eq 'favdel') {
 				$favs->deleteUrl( $furl );
@@ -1106,8 +1121,12 @@ sub handleSubFeed {
 	# Pass-through forceRefresh flag
 	$subFeed->{forceRefresh} = 1 if $feed->{forceRefresh};
 	
-	foreach (qw(offset total actions image cover albumData albumInfo orderByList indexList playlist_id playlistTitle)) {
+	foreach (qw(offset total actions albumData albumInfo orderByList indexList playlist_id playlistTitle)) {
 		$subFeed->{$_} = $feed->{$_} if defined $feed->{$_};
+	}
+
+	foreach (qw(image cover)) {
+		$subFeed->{$_} = proxiedImage($feed->{$_}) if defined $feed->{$_};
 	}
 	
 	# Mark this as coming from subFeed, so that we know to ignore forceRefresh

@@ -44,6 +44,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Unicode;
 use Slim::Utils::Prefs;
 use Slim::Utils::Text;
+use Slim::Web::ImageProxy qw(proxiedImage);
 
 {
 	if (main::ISWINDOWS) {
@@ -449,6 +450,9 @@ sub albumsQuery {
 			}
 		}
 		$c->{'contributors.name'} = 1;
+		
+		# if albums for a specific contributor are requested, then we need the album's contributor, too
+		$c->{'albums.contributor'} = $contributorID;
 	}
 	
 	if ( $tags =~ /s/ ) {
@@ -569,8 +573,14 @@ sub albumsQuery {
 			$tags =~ /S/ && $request->addResultLoopIfValueDefined($loopname, $chunkCount, 'artist_id', $c->{'albums.contributor'});
 			if ($tags =~ /a/) {
 				# Bug 15313, this used to use $eachitem->artists which
-				# contains a lot of extra logic.  If this data is wrong we may
-				# need to fix how the album.contributor field is set
+				# contains a lot of extra logic.
+
+				# Bug 17542: If the album artist is different from the current track's artist,
+				# use the album artist instead of the track artist (if available)
+				if ($contributorID && $c->{'albums.contributor'} && $contributorID != $c->{'albums.contributor'}) {
+					$c->{'contributors.name'} = Slim::Schema->find('Contributor', $c->{'albums.contributor'})->name || $c->{'contributors.name'};
+				}
+
 				$request->addResultLoopIfValueDefined($loopname, $chunkCount, 'artist', $c->{'contributors.name'});
 			}
 			if ($tags =~ /s/) {
@@ -3290,7 +3300,7 @@ sub statusQuery {
 		
 		if ( $menuMode ) {
 			# Set required tags for menuMode
-			$tags = 'aAlKNcx';
+			$tags = 'aAlKNcxJ';
 		}
 		else {
 			$tags = 'gald' if !defined $tags;
@@ -4061,7 +4071,7 @@ sub _addJiveSong {
 	my $songData  = _songData(
 		$request,
 		$track,
-		'aAlKNcx',			# tags needed for our entities
+		'aAlKNcxJ',			# tags needed for our entities
 	);
 	
 	my $isRemote = $songData->{remote};
@@ -4113,10 +4123,10 @@ sub _addJiveSong {
 	$text .= "\n" . $secondLine;
 
 	# Bug 7443, check for a track cover before using the album cover
-	my $iconId = $songData->{coverid};
+	my $iconId = $songData->{coverid} || $songData->{artwork_track_id};
 	
 	if ( defined($songData->{artwork_url}) ) {
-		$request->addResultLoop( $loop, $count, 'icon', $songData->{artwork_url} );
+		$request->addResultLoop( $loop, $count, 'icon', proxiedImage($songData->{artwork_url}) );
 	}
 	elsif ( main::SLIM_SERVICE ) {
 		# send radio placeholder art when on mysb.com
@@ -4125,7 +4135,7 @@ sub _addJiveSong {
 		);
 	}
 	elsif ( defined $iconId ) {
-		$request->addResultLoop($loop, $count, 'icon-id', $iconId);
+		$request->addResultLoop($loop, $count, 'icon-id', proxiedImage($iconId));
 	}
 	elsif ( $isRemote ) {
 		# send radio placeholder art for remote tracks with no art
@@ -4479,6 +4489,10 @@ sub _songData {
 			if (($tag eq 'R' || $tag eq 'x') && $value == 0) {
 				$value = undef;
 			}
+			# we might need to proxy the image request to resize it
+			elsif ($tag eq 'K' && $value) {
+				$value = proxiedImage($value); 
+			}
 			
 			# if we have a value
 			if (defined $value && $value ne '') {
@@ -4502,7 +4516,7 @@ sub showArtwork {
 	my $id = $request->getParam('_artworkid');
 
 	if ($id =~ /:\/\//) {
-		$request->addResult('artworkUrl'  => $id);
+		$request->addResult('artworkUrl'  => proxiedImage($id));
 	} else {
 		$request->addResult('artworkId'  => $id);
 	}
